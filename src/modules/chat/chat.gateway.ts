@@ -31,9 +31,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
         console.log("Usuario conectado :D")
 
         const miembros = await this.chatService.getMiembros(idUsuario)
-        console.log("los miembros:",miembros)
-
-        client.emit("estoy_conectado");
+        for (const miembro of miembros){
+          const socketId = miembro.cliente_socket_id
+          this.server.to(socketId).emit("estoy_conectado")
+        }
       }).catch(error =>{
         console.log("Error al conectar: ",error)
       })

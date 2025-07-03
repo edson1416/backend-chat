@@ -82,7 +82,8 @@ export class ChatService {
     return  await this.miembrosRepository.find({
         where:{
           chat_id: In(chatIds)
-        }
+        },
+        select:['cliente_socket_id']
     })
 
   }
