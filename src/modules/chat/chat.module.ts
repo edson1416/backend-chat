@@ -5,9 +5,12 @@ import { ChatController } from './chat.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChatEntity } from './entity/Chat.entity';
 import { ImgChatEntity } from './entity/ImgChat.entity';
+import { UsersEntity } from './entity/Users.entity';
+import { MisChatsEntity } from './entity/MisChats.entity';
+import { MiembrosEntity } from './entity/Miembros.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ChatEntity,ImgChatEntity])],
+  imports: [TypeOrmModule.forFeature([ChatEntity,ImgChatEntity,UsersEntity,MisChatsEntity,MiembrosEntity])],
   providers: [ChatService, ChatGateway],
   controllers: [ChatController]
 })

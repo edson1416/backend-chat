@@ -19,13 +19,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
   }
 
   //al estar conectado al websocket
-  handleConnection(client: Socket) {
+   handleConnection(client: Socket) {
     console.log(`Usuario conectado ${client.id}`);
+    const idUsuario = client.handshake.query.idUsuario;
+
+
+    if(idUsuario){
+      this.chatService.actualizarClienteSocketId(idUsuario,client.id)
+
+      this.chatService.conexionUsuario(idUsuario).then(async ()=>{
+        console.log("Usuario conectado :D")
+
+        const miembros = await this.chatService.getMiembros(idUsuario)
+        console.log("los miembros:",miembros)
+
+        client.emit("estoy_conectado");
+      }).catch(error =>{
+        console.log("Error al conectar: ",error)
+      })
+    }
   }
 
   //al estar desconectado al websocket
   handleDisconnect(client: Socket) {
     console.log(`Usuario desconectado ${client.id}`);
+
   }
 
   @SubscribeMessage('message')

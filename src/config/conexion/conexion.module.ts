@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChatEntity } from '../../modules/chat/entity/Chat.entity';
 import { UsersEntity } from '../../modules/chat/entity/Users.entity';
 import { ImgChatEntity } from '../../modules/chat/entity/ImgChat.entity';
+import { MisChatsEntity } from '../../modules/chat/entity/MisChats.entity';
+import { MiembrosEntity } from '../../modules/chat/entity/Miembros.entity';
 
 @Module({
   imports:[
@@ -18,7 +20,7 @@ import { ImgChatEntity } from '../../modules/chat/entity/ImgChat.entity';
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
-        entities: [ChatEntity, UsersEntity, ImgChatEntity]
+        entities: [ChatEntity, UsersEntity, ImgChatEntity,UsersEntity,MisChatsEntity,MiembrosEntity]
         //autoLoadEntities: true,
       })
     })

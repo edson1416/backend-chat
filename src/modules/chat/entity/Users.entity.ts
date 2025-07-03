@@ -16,4 +16,10 @@ export class UsersEntity{
   @OneToMany(() => ChatEntity, chat => chat.autor)
   chats: ChatEntity[];
 
+  @Column()
+  conectado: boolean;
+
+  @Column()
+  fecha_ultima_conexion:Date;
+
 }

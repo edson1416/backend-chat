@@ -5,6 +5,10 @@ import {Repository} from "typeorm";
 import { MensajeCreate } from './dto/mensaje.dto';
 import { ImgChatEntity } from './entity/ImgChat.entity';
 import { raw } from 'express';
+import { UsersEntity } from './entity/Users.entity';
+import { MisChatsEntity } from './entity/MisChats.entity';
+import { MiembrosEntity } from './entity/Miembros.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class ChatService {
@@ -12,7 +16,15 @@ export class ChatService {
     @InjectRepository(ChatEntity) private readonly chatRepository: Repository<ChatEntity>,
     @InjectRepository(ImgChatEntity)
     private readonly imgChatRepository: Repository<ImgChatEntity>,
+    @InjectRepository(UsersEntity) private readonly userRepository:Repository<UsersEntity>,
+    @InjectRepository(MisChatsEntity) private readonly misChatsRepository: Repository<MisChatsEntity>,
+    @InjectRepository(MiembrosEntity) private readonly miembrosRepository:Repository<MiembrosEntity>
   ) {
+  }
+  async conexionUsuario(idUsuario){
+    await this.userRepository.update(idUsuario,{
+      conectado: true
+    })
   }
 
   async saveMassage(mensajeRequest: MensajeCreate){
@@ -51,4 +63,29 @@ export class ChatService {
       relations:['autor','imagenes']
     })
   }
+
+  async actualizarClienteSocketId(user_id,cliente_socket){
+    await this.miembrosRepository.update(user_id,{
+      cliente_socket_id:cliente_socket
+    })
+  }
+
+  async getMiembros(user_id){
+
+    const chats = await this.misChatsRepository.find({where:{user_id}, select:['chat_id']})
+    const chatIds = chats.map(m => m.chat_id);
+
+    if (chatIds.length === 0) {
+      return []; // No hay chats, devolvemos array vacío
+    }
+
+    return  await this.miembrosRepository.find({
+        where:{
+          chat_id: In(chatIds)
+        }
+    })
+
+  }
+
+
 }
