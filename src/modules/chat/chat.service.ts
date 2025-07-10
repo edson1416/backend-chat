@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChatEntity } from './entity/Chat.entity';
-import {Repository} from "typeorm";
+import {Repository, Not} from "typeorm";
 import { MensajeCreate } from './dto/mensaje.dto';
 import { ImgChatEntity } from './entity/ImgChat.entity';
 import { raw } from 'express';
@@ -13,29 +13,49 @@ import { In } from 'typeorm';
 @Injectable()
 export class ChatService {
   constructor(
-    @InjectRepository(ChatEntity) private readonly chatRepository: Repository<ChatEntity>,
+    @InjectRepository(ChatEntity)
+    private readonly chatRepository: Repository<ChatEntity>,
     @InjectRepository(ImgChatEntity)
     private readonly imgChatRepository: Repository<ImgChatEntity>,
-    @InjectRepository(UsersEntity) private readonly userRepository:Repository<UsersEntity>,
-    @InjectRepository(MisChatsEntity) private readonly misChatsRepository: Repository<MisChatsEntity>,
-    @InjectRepository(MiembrosEntity) private readonly miembrosRepository:Repository<MiembrosEntity>
-  ) {
-  }
-  async conexionUsuario(idUsuario){
-    await this.userRepository.update(idUsuario,{
-      conectado: true
-    })
+    @InjectRepository(UsersEntity)
+    private readonly userRepository: Repository<UsersEntity>,
+    @InjectRepository(MisChatsEntity)
+    private readonly misChatsRepository: Repository<MisChatsEntity>,
+    @InjectRepository(MiembrosEntity)
+    private readonly miembrosRepository: Repository<MiembrosEntity>,
+  ) {}
+  async conexionUsuario(idUsuario) {
+    await this.userRepository.update(idUsuario, {
+      conectado: true,
+    });
   }
 
-  async saveMassage(mensajeRequest: MensajeCreate){
+  async saveMassage(mensajeRequest: MensajeCreate) {
+    let visto = false;
+
+    //verificar si el usuario esta in el chat
+    const usuario = await this.miembrosRepository.find({
+      where: {
+        chat_id: mensajeRequest.chat_id,
+        user_id: Not(mensajeRequest.user_id),
+      },
+      select: ['user_id', 'in_chat'],
+    });
+
+    if (usuario[0].in_chat) {
+      visto = true;
+    }
+
     const nuevoMensaje = this.chatRepository.create({
       chat_id: mensajeRequest.chat_id,
       user_id: mensajeRequest.user_id,
       mensaje: mensajeRequest.mensaje,
-      created_at: new Date()
+      visto: visto,
+      created_at: new Date(),
     });
 
-    const mensajeGuardado = await this.chatRepository.save(nuevoMensaje)
+    //GUARDAR MENSAJE
+    const mensajeGuardado = await this.chatRepository.save(nuevoMensaje);
 
     // 2. Si viene la imagen, crear el registro en ImgChatEntity
     if (mensajeRequest.url_img) {
@@ -54,39 +74,77 @@ export class ChatService {
   }
 
   async getMessage(chat_id: number): Promise<ChatEntity[]> {
-    return await this.chatRepository.find({where:{chat_id},relations:['autor','imagenes'], order:{id: 'ASC'}});
+    return await this.chatRepository.find({
+      where: { chat_id },
+      relations: ['autor', 'imagenes'],
+      order: { id: 'ASC' },
+    });
   }
 
-  async mostaraMensajeNuevo(id){
+  async mostaraMensajeNuevo(id) {
     return await this.chatRepository.findOne({
-      where:{id},
-      relations:['autor','imagenes']
-    })
+      where: { id },
+      relations: ['autor', 'imagenes'],
+    });
   }
 
-  async actualizarClienteSocketId(user_id,cliente_socket){
-    await this.miembrosRepository.update(user_id,{
-      cliente_socket_id:cliente_socket
-    })
+  async actualizarClienteSocketId(user_id, cliente_socket) {
+    await this.miembrosRepository.update(user_id, {
+      cliente_socket_id: cliente_socket,
+    });
   }
 
-  async getMiembros(user_id){
+  async actualizarInChat(user_id,chat_id, in_chat: boolean) {
+    await this.miembrosRepository.update(
+      { user_id, chat_id },
+      {
+        in_chat: in_chat,
+      },
+    );
+  }
 
-    const chats = await this.misChatsRepository.find({where:{user_id}, select:['chat_id']})
-    const chatIds = chats.map(m => m.chat_id);
+  async getMiembros(user_id) {
+    const chats = await this.misChatsRepository.find({
+      where: { user_id },
+      select: ['chat_id'],
+    });
+    const chatIds = chats.map((m) => m.chat_id);
 
     if (chatIds.length === 0) {
       return []; // No hay chats, devolvemos array vacío
     }
 
-    return  await this.miembrosRepository.find({
-        where:{
-          chat_id: In(chatIds)
-        },
-        select:['cliente_socket_id']
-    })
-
+    return await this.miembrosRepository.find({
+      where: {
+        chat_id: In(chatIds),
+      },
+      select: ['cliente_socket_id'],
+    });
   }
 
+  async getMiembrosChat(chat_id){
+    return await this.miembrosRepository.find({
+      where:{
+        chat_id:chat_id
+      },
+      select:['cliente_socket_id']
+    })
+  }
 
+  async entrarChat(chat_id,user_id){
+    const mensajesNoLeidos =await this.chatRepository.find({
+      where:{
+        chat_id:chat_id,
+        user_id:Not(user_id),
+        visto:false
+      }
+    })
+
+    for(const mensaje of mensajesNoLeidos){
+      await this.chatRepository.update(mensaje.id,{
+        visto:true
+      })
+    }
+
+  }
 }

@@ -21,6 +21,9 @@ export class ChatEntity{
   @Column()
   mensaje: string;
 
+  @Column()
+  visto:boolean
+
   @OneToMany(() => ImgChatEntity, img => img.mensaje)
   imagenes: ImgChatEntity[];
 

@@ -16,4 +16,7 @@ export class MiembrosEntity{
   @Column()
   cliente_socket_id: string;
 
+  @Column()
+  in_chat: boolean;
+
 }

@@ -11,40 +11,39 @@ import * as console from 'node:console';
 import { MensajeCreate } from './dto/mensaje.dto';
 
 @WebSocketGateway({ cors: { origin: 'http://localhost:5173' } })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
-
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
 
-  constructor(private readonly chatService: ChatService) {
-  }
+  constructor(private readonly chatService: ChatService) {}
 
   //al estar conectado al websocket
-   handleConnection(client: Socket) {
+  handleConnection(client: Socket) {
     console.log(`Usuario conectado ${client.id}`);
     const idUsuario = client.handshake.query.idUsuario;
 
+    if (idUsuario) {
+      this.chatService.actualizarClienteSocketId(idUsuario, client.id);
 
-    if(idUsuario){
-      this.chatService.actualizarClienteSocketId(idUsuario,client.id)
+      this.chatService
+        .conexionUsuario(idUsuario)
+        .then(async () => {
+          console.log('Usuario conectado :D');
 
-      this.chatService.conexionUsuario(idUsuario).then(async ()=>{
-        console.log("Usuario conectado :D")
-
-        const miembros = await this.chatService.getMiembros(idUsuario)
-        for (const miembro of miembros){
-          const socketId = miembro.cliente_socket_id
-          this.server.to(socketId).emit("estoy_conectado")
-        }
-      }).catch(error =>{
-        console.log("Error al conectar: ",error)
-      })
+          const miembros = await this.chatService.getMiembros(idUsuario);
+          for (const miembro of miembros) {
+            const socketId = miembro.cliente_socket_id;
+            this.server.to(socketId).emit('estoy_conectado');
+          }
+        })
+        .catch((error) => {
+          console.log('Error al conectar: ', error);
+        });
     }
   }
 
   //al estar desconectado al websocket
   handleDisconnect(client: Socket) {
     console.log(`Usuario desconectado ${client.id}`);
-
   }
 
   @SubscribeMessage('message')
@@ -53,31 +52,42 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
   }
 
   @SubscribeMessage('entrar_chat')
-  async entrarAlChat(cliente: Socket, idChat: string){
-     cliente.join(idChat);
-     console.log('el usuario entro al chat', idChat);
-     console.log('salas del cliente:', cliente.rooms);
-     console.log('Cliente entró a la sala:', idChat);
-     console.log('Salas activas del cliente:', cliente.rooms);
-     console.log('entrar_chat desde:', cliente.id);
+  async entrarAlChat(cliente: Socket, idChat: string) {
+    const idUsuario = cliente.handshake.query.idUsuario;
+    cliente.join(idChat);
+    console.log('el usuario entro al chat', idChat);
+    await this.chatService.actualizarInChat(idUsuario,idChat, true);
+    await this.chatService.entrarChat(idChat,idUsuario);
+    const mensajes = await this.chatService.getMessage(parseInt(idChat));
+    const usuarios = await this.chatService.getMiembrosChat(idChat);
+    for (const usuario of usuarios) {
+      const socketId = usuario.cliente_socket_id;
+      this.server.to(socketId).emit('cargar_mensajes', mensajes);
+    }
+    //cliente.emit('cargar_mensajes',mensajes)
+  }
 
-     const mensajes = await this.chatService.getMessage(parseInt(idChat));
-     cliente.emit('cargar_mensajes',mensajes)
-
+  @SubscribeMessage('salir_chat')
+  async salirDelChat(cliente: Socket, idChat: string){
+    const idUsuario = cliente.handshake.query.idUsuario
+    await this.chatService.actualizarInChat(idUsuario,idChat,false)
   }
 
   @SubscribeMessage('enviar_mensaje')
-  async enviarMensaje(cliente: Socket, mensajeCreate: MensajeCreate){
-
+  async enviarMensaje(cliente: Socket, mensajeCreate: MensajeCreate) {
     //guardar mensaje en la db
     const mensajeGuardado = await this.chatService.saveMassage(mensajeCreate);
 
     //traer mensaje con relaciones
-    const nuevoMensaje = await this.chatService.mostaraMensajeNuevo(mensajeGuardado?.id)
+    const nuevoMensaje = await this.chatService.mostaraMensajeNuevo(
+      mensajeGuardado?.id,
+    );
     console.log('✉️ enviar_mensaje desde:', cliente.id);
     cliente.emit('evento_prueba');
-    console.log(mensajeCreate)
+    console.log(nuevoMensaje);
     //mandar mensaje a los usuarios en el chat
-    this.server.to(mensajeCreate.chat_id.toString()).emit('mensaje_recibido',nuevoMensaje);
+    this.server
+      .to(mensajeCreate.chat_id.toString())
+      .emit('mensaje_recibido', nuevoMensaje);
   }
 }
