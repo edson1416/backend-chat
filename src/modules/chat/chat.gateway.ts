@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import * as console from 'node:console';
 import { MensajeCreate } from './dto/mensaje.dto';
+import Any = jasmine.Any;
 
 @WebSocketGateway({ cors: { origin: 'http://localhost:5173' } })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -20,7 +21,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleConnection(client: Socket) {
     console.log(`Usuario conectado ${client.id}`);
     const idUsuario = client.handshake.query.idUsuario;
-
     if (idUsuario) {
       this.chatService.actualizarClienteSocketId(idUsuario, client.id);
 
@@ -28,7 +28,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         .conexionUsuario(idUsuario)
         .then(async () => {
           console.log('Usuario conectado :D');
-
+          const contadorMensajes =await this.chatService.contadorMensajesNoLeidos(idUsuario)
+          console.log("mensajes no leidos",contadorMensajes)
+          client.emit('mensajes_no_leidos',contadorMensajes)
           const miembros = await this.chatService.getMiembros(idUsuario);
           for (const miembro of miembros) {
             const socketId = miembro.cliente_socket_id;

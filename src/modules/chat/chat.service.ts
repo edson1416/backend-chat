@@ -9,6 +9,7 @@ import { UsersEntity } from './entity/Users.entity';
 import { MisChatsEntity } from './entity/MisChats.entity';
 import { MiembrosEntity } from './entity/Miembros.entity';
 import { In } from 'typeorm';
+import * as console from 'node:console';
 
 @Injectable()
 export class ChatService {
@@ -146,5 +147,29 @@ export class ChatService {
       })
     }
 
+  }
+
+  async contadorMensajesNoLeidos(user_id){
+    let contadorMensajes =0;
+
+    const chats = await this.misChatsRepository.find({
+      where: {user_id},
+      select: ['chat_id']
+    })
+
+    const chatsId = chats.map((m) => m.chat_id)
+    if (chatsId.length === 0) {
+      return []; // No hay chats, devolvemos array vacío
+    }
+
+    contadorMensajes = await this.chatRepository.count({
+      where: {
+        chat_id: In(chatsId.map(id => Number(id))),
+        user_id: Not(user_id),
+        visto:false
+      }
+    })
+    return contadorMensajes
+    //console.log("contador mensajes: ",contadorMensajes)
   }
 }
